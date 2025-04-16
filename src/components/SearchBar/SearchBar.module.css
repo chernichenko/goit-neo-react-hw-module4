@@ -1,0 +1,16 @@
+.header {
+  background: #3f51b5;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.form {
+  display: flex;
+  gap: 10px;
+}
+
+.input {
+  padding: 8px;
+  width: 300px;
+}

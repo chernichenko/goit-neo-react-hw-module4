@@ -1,48 +1,72 @@
 import { useEffect, useState } from "react";
-import { nanoid } from "nanoid";
-import ContactForm from "./components/ContactForm/ContactForm";
-import SearchBox from "./components/SearchBox/SearchBox";
-import ContactList from "./components/ContactList/ContactList";
+import { ToastContainer, toast } from "react-toastify";
+import Modal from "react-modal";
 
-const getInitialContacts = () => {
-  const saved = localStorage.getItem("contacts");
-  return saved
-    ? JSON.parse(saved)
-    : [
-        { id: "id-1", name: "Rosie Simpson", number: "459-12-56" },
-        { id: "id-2", name: "Hermione Kline", number: "443-89-12" },
-        { id: "id-3", name: "Eden Clements", number: "645-17-79" },
-        { id: "id-4", name: "Annie Copeland", number: "227-91-26" },
-      ];
-};
+import { fetchImages } from "./api/unsplash-api";
+import SearchBar from "./components/SearchBar/SearchBar";
+import ImageGallery from "./components/ImageGallery/ImageGallery";
+import ImageModal from "./components/ImageModal/ImageModal";
+import Loader from "./components/Loader/Loader";
+import ErrorMessage from "./components/ErrorMessage/ErrorMessage";
+import LoadMoreBtn from "./components/LoadMoreBtn/LoadMoreBtn";
+
+Modal.setAppElement("#root");
 
 const App = () => {
-  const [contacts, setContacts] = useState(getInitialContacts);
-  const [filter, setFilter] = useState("");
-
-  const visibleContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(filter.toLowerCase())
-  );
-
-  const addContact = (contact) => {
-    const newContact = { ...contact, id: nanoid() };
-    setContacts((prev) => [...prev, newContact]);
-  };
-
-  const deleteContact = (id) => {
-    setContacts((prev) => prev.filter((contact) => contact.id !== id));
-  };
+  const [query, setQuery] = useState("");
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [modalData, setModalData] = useState(null);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
-    localStorage.setItem("contacts", JSON.stringify(contacts));
-  }, [contacts]);
+    if (!query) return;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const { images: newImages, total } = await fetchImages(query, page);
+        setImages((prev) => [...prev, ...newImages]);
+        setTotalPages(Math.ceil(total / 12));
+      } catch (err) {
+        setError("Failed to load images");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [query, page]);
+
+  const handleSearch = (newQuery) => {
+    if (!newQuery.trim()) {
+      toast("Please enter a search term.");
+      return;
+    }
+    setQuery(newQuery);
+    setImages([]);
+    setPage(1);
+    setError(null);
+  };
+
+  const openModal = (image) => setModalData(image);
+  const closeModal = () => setModalData(null);
 
   return (
     <div>
-      <h1>Phonebook</h1>
-      <ContactForm onAdd={addContact} />
-      <SearchBox value={filter} onChange={setFilter} />
-      <ContactList contacts={visibleContacts} onDelete={deleteContact} />
+      <SearchBar onSubmit={handleSearch} />
+      {error && <ErrorMessage message={error} />}
+      {images.length > 0 && (
+        <ImageGallery items={images} onImageClick={openModal} />
+      )}
+      {loading && <Loader />}
+      {images.length > 0 && page < totalPages && !loading && (
+        <LoadMoreBtn onClick={() => setPage((p) => p + 1)} />
+      )}
+      {modalData && <ImageModal data={modalData} onClose={closeModal} />}
+      <ToastContainer position="top-center" autoClose={3000} />
     </div>
   );
 };
